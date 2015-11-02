@@ -1,11 +1,11 @@
+# -*- coding: utf-8 -*-
 from django.test import TestCase
-from django.test.utils import override_settings
 
-from .. import html
-from .. import settings
+from djangocms_text_ckeditor import html, settings
 
 
 class HtmlSanitizerAdditionalProtocolsTests(TestCase):
+
     def tearDown(self):
         settings.TEXT_ADDITIONAL_PROTOCOLS = []
 

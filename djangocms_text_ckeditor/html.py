@@ -1,14 +1,16 @@
 # -*- coding: utf-8 -*-
 import base64
-from html5lib import sanitizer, serializer, treebuilders, treewalkers
-import html5lib
-from PIL import Image
 import re
 import uuid
 
+import html5lib
+from django.utils.module_loading import import_by_path
 from django.utils.six import BytesIO
+from html5lib import sanitizer, serializer, treebuilders, treewalkers
+from PIL import Image
 
 from . import settings
+from .sanitizer import TextSanitizer
 from .utils import plugin_to_tag
 
 
@@ -31,7 +33,12 @@ def _get_default_parser():
         sanitizer.HTMLSanitizer.allowed_protocols = (
             sanitizer.HTMLSanitizer.acceptable_protocols +
             list(settings.TEXT_ADDITIONAL_PROTOCOLS))
-        opts['tokenizer'] = sanitizer.HTMLSanitizer
+        parser_classes = []
+        for parser_class in settings.ALLOW_TOKEN_PARSERS:
+            parser_classes.append(import_by_path(parser_class))
+
+        TextSanitizer.allow_token_parsers = parser_classes
+        opts['tokenizer'] = TextSanitizer
 
     return html5lib.HTMLParser(tree=treebuilders.getTreeBuilder("dom"),
                                **opts)
@@ -42,7 +49,6 @@ DEFAULT_PARSER = _get_default_parser()
 def clean_html(data, full=True, parser=DEFAULT_PARSER):
     """
     Cleans HTML from XSS vulnerabilities using html5lib
-    
     If full is False, only the contents inside <body> will be returned (without
     the <body> tags).
     """
@@ -65,7 +71,7 @@ def extract_images(data, plugin):
     if not settings.TEXT_SAVE_IMAGE_FUNCTION:
         return data
     tree_builder = html5lib.treebuilders.getTreeBuilder('dom')
-    parser = html5lib.html5parser.HTMLParser(tree = tree_builder)
+    parser = html5lib.html5parser.HTMLParser(tree=tree_builder)
     dom = parser.parse(data)
     found = False
     for img in dom.getElementsByTagName('img'):
@@ -110,7 +116,9 @@ def extract_images(data, plugin):
             image = new_image
         filename = u"%s.%s" % (uuid.uuid4(), file_ending)
         # transform image into a cms plugin
-        image_plugin = img_data_to_plugin(filename, image, parent_plugin=plugin, width=width, height=height)
+        image_plugin = img_data_to_plugin(
+            filename, image, parent_plugin=plugin, width=width, height=height
+        )
         # render the new html for the plugin
         new_img_html = plugin_to_tag(image_plugin)
         # replace the original image node with the newly created cms plugin html
@@ -124,7 +132,9 @@ def extract_images(data, plugin):
 
 def img_data_to_plugin(filename, image, parent_plugin, width=None, height=None):
     func_name = settings.TEXT_SAVE_IMAGE_FUNCTION.split(".")[-1]
-    module = __import__(".".join(settings.TEXT_SAVE_IMAGE_FUNCTION.split(".")[:-1]), fromlist=[func_name])
+    module = __import__(
+        ".".join(settings.TEXT_SAVE_IMAGE_FUNCTION.split(".")[:-1]), fromlist=[func_name]
+    )
     func = getattr(module, func_name)
     return func(filename, image, parent_plugin, width=width, height=height)
 

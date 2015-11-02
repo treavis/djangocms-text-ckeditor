@@ -1,10 +1,20 @@
 djangocms-text-ckeditor
 =======================
 
-Text Plugin for django-cms with CK-Editor
+Text Plugin for django-cms with CK-Editor.
+
+It currently supports:
+
+* Django 1.6 - 1.8
+* django CMS 3.0 - 3.1
 
 .. WARNING::
    ``cms.plugins.text`` and ``djangocms-text-ckeditor`` can't be used at the same time.
+
+.. WARNING::
+   For Django 1.4 and 1.5 use ``djangocms-text-ckeditor`` < 2.6.
+
+   ``djangocms-text-ckeditor`` >= 2.6 is compatible with Django 1.6 and up only.
 
 .. WARNING::
    For django CMS 2.3 and 2.4 use ``djangocms-text-ckeditor`` < 2 (e.g.: version 1.0.10).
@@ -15,14 +25,20 @@ Text Plugin for django-cms with CK-Editor
 Installation
 ------------
 
-This plugin requires `django CMS` 2.3 or higher to be properly installed.
+This plugin requires `django CMS` 3.0 or higher to be properly installed.
 
 * In your projects `virtualenv`, run ``pip install djangocms-text-ckeditor``.
-* Add ``'djangocms_text_ckeditor'`` to your ``INSTALLED_APPS`` setting **BEFORE** the ``cms`` entry.
-* If using Django 1.7 add ``'djangocms_text_ckeditor': 'djangocms_text_ckeditor.migrations_django',``
-  to ``MIGRATION_MODULES``  (or define ``MIGRATION_MODULES`` if it does not exists);
-  when django CMS 3.1 will be released, migrations for Django 1.7 will be moved
-  to the standard location and the south-style ones to ``south_migrations``.
+* If upgrading from previous ``djangocms_text_ckeditor``, be aware that the
+  names of the migration modules have changed:
+
+  * Django 1.6: ``djangocms_text_ckeditor.migrations`` to
+    ``djangocms_text_ckeditor.south_migrations``
+  * Django 1.7: ``djangocms_text_ckeditor.migrations_django`` to
+    ``djangocms_text_ckeditor.migrations``
+* If using Django 1.6 add ``'djangocms_text_ckeditor': 'djangocms_text_ckeditor.south_migrations',``
+  to ``SOUTH_MIGRATION_MODULES``  (or define ``SOUTH_MIGRATION_MODULES`` if it does not exists);
+* If using Django 1.7 and you were using version prior to 2.5, remove
+  ``djangocms_text_ckeditor`` from ``MIGRATION_MODULES``;
 * Run ``manage.py migrate djangocms_text_ckeditor``.
 
 Upgrading from ``cms.plugins.text``
@@ -40,7 +56,7 @@ Default content in Placeholder
 ******************************
 
 If you use Django-CMS >= 3.0, you can use ``TextPlugin`` in "default_plugins"
-(see docs about the CMS_PLACEHOLDER_CONF setting in Django CMS 3.0).
+(see docs about the `CMS_PLACEHOLDER_CONF`_ setting in Django CMS 3.0).
 ``TextPlugin`` requires just one value: ``body`` where you write your default
 HTML content. If you want to add some "default children" to your
 automagically added plugin (i.e. a ``LinkPlugin``), you have to put children
@@ -78,6 +94,8 @@ inserted order of chidren. For example::
         }
     }
 
+.. _CMS_PLACEHOLDER_CONF: http://docs.django-cms.org/en/latest/how_to/placeholders.html?highlight=cms_placeholder_conf
+
 CKEDITOR_SETTINGS
 *****************
 
@@ -102,7 +120,7 @@ To customize the plugin editor, use `toolbar_CMS` attribute, as in::
             ['Undo', 'Redo'],
             ['cmsplugins', '-', 'ShowBlocks'],
             ['Format', 'Styles'],
-        ]
+        ],
         'skin': 'moono',
     }
 
@@ -118,7 +136,7 @@ models, use `toolbar_HTMLField` attribute::
             ['Undo', 'Redo'],
             ['ShowBlocks'],
             ['Format', 'Styles'],
-        ]
+        ],
         'skin': 'moono',
     }
 
@@ -206,7 +224,7 @@ And use it in your models, just like a ``TextField``::
     class MyModel(models.Model):
         myfield = HTMLField(blank=True)
 
-This field does not allow you to embed any other CMS plugins within the text editor. Plugins can only be embedded 
+This field does not allow you to embed any other CMS plugins within the text editor. Plugins can only be embedded
 within ``Placeholder`` fields.
 
 If you need to allow additional plugins to be embedded in a HTML field, convert the ``HTMLField`` to a ``Placeholderfield``
@@ -214,6 +232,22 @@ and configure the placeholder to only accept TextPlugin. For more information on
 
 http://django-cms.readthedocs.org/en/latest/extending_cms/placeholders.html
 
+
+Auto Hyphenate Text
+-------------------
+
+You can hyphenate the text entered into the editor, so that the HTML entity ``&shy;`` (soft-hyphen_)
+automatically is added in between words, at the correct syllable boundary.
+
+To activate this feature, ``pip install django-softhyphen``. In ``settings.py`` add ``'softhyphen'``
+to the list of ``INSTALLED_APPS``. django-softhyphen_ also installs hyphening dictionaries for 25
+natural languages.
+
+In case you already installed ``django-softhyphen`` but do not want to soft hyphenate, set
+``TEXT_AUTO_HYPHENATE`` to ``False``.
+
+.. _soft-hyphen: http://www.w3.org/TR/html4/struct/text.html#h-9.3.3
+.. _django-softhyphen: https://github.com/datadesk/django-softhyphen
 
 Extending the plugin
 --------------------
@@ -239,7 +273,7 @@ and a plugin class extending ``TextPlugin`` class::
     class MyTextPlugin(TextPlugin):
         name = _(u"My text plugin")
         model = MyTextModel
-        
+
     plugin_pool.register_plugin(MyTextPlugin)
 
 Note that if you override the `render` method that is inherited from the base ``TextPlugin`` class, any child text
@@ -248,8 +282,8 @@ to render out all child plugins located in the ``body`` field. For example::
 
     from djangocms_text_ckeditor.cms_plugins import TextPlugin
     from .models import MyTextModel
-    
-    
+
+
     class MyTextPlugin(TextPlugin):
         name = _(u"My text plugin")
         model = MyTextModel
@@ -260,7 +294,7 @@ to render out all child plugins located in the ``body`` field. For example::
             })
             # Other custom render code you may have
         return super(MyTextPlugin, self).render(context, instance, placeholder)
-        
+
     plugin_pool.register_plugin(MyTextPlugin)
 
 You can further `customize your plugin`_ as other plugins.
@@ -285,7 +319,25 @@ you may customize the tags and attributes allowed by overriding the
 ``TEXT_ADDITIONAL_TAGS`` and ``TEXT_ADDITIONAL_ATTRIBUTES`` settings::
 
     TEXT_ADDITIONAL_TAGS = ('iframe',)
-    TEXT_ADDITIONAL_TAGS = ('scrolling', 'allowfullscreen', 'frameborder')
+    TEXT_ADDITIONAL_ATTRIBUTES = ('scrolling', 'allowfullscreen', 'frameborder')
+
+In case you need more control on sanitisation you can extend AllowTokenParser class and define
+your logic into parse() method. For example, if you want to skip your donut attribute during
+sanitisation, you can create a class like this::
+
+    from djangocms_text_ckeditor.sanitizer import AllowTokenParser
+
+
+    class DonutAttributeParser(AllowTokenParser):
+
+        def parse(self, attribute, val):
+            return attribute.startswith('donut-')
+
+And add your class to ``ALLOW_TOKEN_PARSERS`` settings::
+
+    ALLOW_TOKEN_PARSERS = (
+        'mymodule.DonutAttributeParser',
+    )
 
 **NOTE**: Some versions of CKEditor will pre-sanitize your text before passing it to the web server,
 rendering the above settings useless. To ensure this does not happen, you may need to add the
@@ -306,4 +358,4 @@ See the `html5lib documentation`_ for further information.
 About CKEditor
 --------------
 
-The current integrated Version of CKeditor is **4.4**. For a full documentation visit: http://ckeditor.com/
+The current integrated Version of CKeditor is **4.5.1**. For a full documentation visit: http://ckeditor.com/

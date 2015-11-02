@@ -1,21 +1,22 @@
+# -*- coding: utf-8 -*-
 import re
 import sys
 
-try:
-    from django.utils.encoding import force_text as force_unicode_or_text
-except ImportError:
-    from django.utils.encoding import force_unicode as force_unicode_or_text
-
+from cms.models import CMSPlugin
 from django.db import models
+from django.utils.encoding import force_text, python_2_unicode_compatible
 from django.utils.html import strip_tags
 from django.utils.text import Truncator
 from django.utils.translation import ugettext_lazy as _
 
-from cms.models import CMSPlugin
-from cms.utils.compat.dj import python_2_unicode_compatible
-
-from .utils import plugin_tags_to_id_list, replace_plugin_tags, plugin_to_tag
+from . import settings
 from .html import clean_html, extract_images
+from .utils import plugin_tags_to_id_list, plugin_to_tag, replace_plugin_tags
+
+try:
+    from softhyphen.html import hyphenate
+except ImportError:
+    hyphenate = lambda t: t
 
 
 @python_2_unicode_compatible
@@ -30,25 +31,35 @@ class AbstractText(CMSPlugin):
         abstract = True
 
     def __str__(self):
-        return Truncator(strip_tags(self.body)).words(3, truncate="...")
+        return Truncator(strip_tags(self.body).replace('&shy;', '')).words(3, truncate="...")
 
     def __init__(self, *args, **kwargs):
         super(AbstractText, self).__init__(*args, **kwargs)
-        self.body = force_unicode_or_text(self.body)
+        self.body = force_text(self.body)
 
     def save(self, *args, **kwargs):
+        # we need to save the plugin first and then save the updated body, otherwise
+        # we cannot set the correct parent on extracted images
+        kwargs['update_fields'] = ('body',)
+        super(AbstractText, self).save(*args, **kwargs)
         body = self.body
         body = extract_images(body, self)
         body = clean_html(body, full=False)
+        if settings.TEXT_AUTO_HYPHENATE:
+            try:
+                body = hyphenate(body, language=self.language)
+            except (TypeError, CMSPlugin.DoesNotExist):
+                body = hyphenate(body)
         self.body = body
+        kwargs['update_fields'] = ('body',)
         super(AbstractText, self).save(*args, **kwargs)
 
     def clean_plugins(self):
         ids = plugin_tags_to_id_list(self.body)
         plugins = CMSPlugin.objects.filter(parent=self)
         for plugin in plugins:
-            if not plugin.pk in ids:
-                #delete plugins that are not referenced in the text anymore
+            if plugin.pk not in ids:
+                # delete plugins that are not referenced in the text anymore
                 plugin.delete()
 
     def post_copy(self, old_instance, ziplist):
@@ -116,7 +127,7 @@ class AbstractText(CMSPlugin):
 
     def notify_on_autoadd_children(self, request, conf, children):
         """
-        Method called when we auto add children to this plugin via 
+        Method called when we auto add children to this plugin via
         default_plugins/<plugin>/children in CMS_PLACEHOLDER_CONF.
         we must replace some strings with child tag for the CKEDITOR.
         Strings are "%(_tag_child_<order>)s" with the inserted order of chidren
@@ -124,7 +135,7 @@ class AbstractText(CMSPlugin):
         replacements = dict()
         order = 1
         for child in children:
-            replacements['_tag_child_'+str(order)] = plugin_to_tag(child)
+            replacements['_tag_child_' + str(order)] = plugin_to_tag(child)
             order += 1
         self.body = self.body % replacements
         self.save()

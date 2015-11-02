@@ -1,1 +1,3 @@
-__version__ = "2.4.2"
+# -*- coding: utf-8 -*-
+__version__ = "2.7.0.dev1"
+default_app_config = 'djangocms_text_ckeditor.apps.TextCkeditorConfig'
