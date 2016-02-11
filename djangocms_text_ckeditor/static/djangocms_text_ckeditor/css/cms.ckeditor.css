@@ -3,6 +3,10 @@
  * @copyright:	https://github.com/divio/djangocms-text-ckeditor
  */
 
+.cke_contents {
+    max-height: 87vh !important;
+}
+
 /* float left with the label */
 .cke_chrome { float:left; width:100%; }
 
