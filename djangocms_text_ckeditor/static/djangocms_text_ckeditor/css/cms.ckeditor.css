@@ -7,6 +7,10 @@
     max-height: 87vh !important;
 }
 
+textarea.cke_source {
+    box-sizing: border-box !important;
+}
+
 /* float left with the label */
 .cke_chrome { float:left; width:100%; }
 
